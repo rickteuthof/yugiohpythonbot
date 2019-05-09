@@ -7,7 +7,7 @@ import requests
 from telegram import InlineQueryResultPhoto
 from telegram.ext import InlineQueryHandler, Updater
 
-TOKEN = Path('./TOKEN').read_text()
+TOKEN = Path('./TOKEN').read_text().strip()
 API_URL = 'https://db.ygoprodeck.com/api/v2/cardinfo.php'
 
 
