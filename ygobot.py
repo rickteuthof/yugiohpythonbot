@@ -10,6 +10,12 @@ from telegram.ext import InlineQueryHandler, Updater
 TOKEN = Path('./TOKEN').read_text().strip()
 API_URL = 'https://db.ygoprodeck.com/api/v2/cardinfo.php'
 
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
 
 def inlinequery(bot, update):
     query = update.inline_query.query
@@ -43,11 +49,6 @@ def error(update, context):
 
 if __name__ == '__main__':
     json_data = json.loads(Path('./data.json').read_text())
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
-    logger = logging.getLogger(__name__)
     updater = Updater(TOKEN)
     dp = updater.dispatcher
     dp.add_handler(InlineQueryHandler(inlinequery))
