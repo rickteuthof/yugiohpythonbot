@@ -1,22 +1,24 @@
-import json
 import logging
 import re
 from difflib import SequenceMatcher
+from json import dumps, loads
 from operator import itemgetter
 from pathlib import Path
 from uuid import uuid4
 
 import requests
-from telegram import InlineQueryResultPhoto
-from telegram.ext import CommandHandler, InlineQueryHandler, Updater
+from numpy import array, reshape
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      InlineQueryResultPhoto)
+from telegram.ext import (CallbackQueryHandler, CommandHandler,
+                          InlineQueryHandler, Updater)
 
 TOKEN = Path('./TOKEN').read_text().strip()
 API_URL = 'https://db.ygoprodeck.com/api/v2/cardinfo.php'
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -50,7 +52,7 @@ def inlinequery(bot, update):
 
 
 def match_ratio(query, card):
-    regex = r'[^\s!,.?":;0-9]+'
+    regex = r'[^\s!,./?":;0-9]+'
     cardname = card['name'].lower()
     query = query.lower()
     ratio = 0
@@ -73,14 +75,24 @@ def card(bot, update):
         query = update.message.text.split(' ', 1)[1]
     except IndexError:
         return
+    results = [result[0] for result in find_matches(query)[:10]]
+    names = [card['name'] for card in results]
+    kbd = [InlineKeyboardButton(name, callback_data=name) for name in names]
+    newshape = (len(kbd) // 2, 2)
+    print(newshape)
+    keyboard = list(reshape(array(kbd), newshape))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(
+        text='Results for query:',
+        reply_markup=reply_markup
+    )
+
+
+def button(bot, update):
+    query = update.callback_query.data
     print(query)
-    result, similarity = find_matches(query)[0]
-    print(result, similarity)
-    send_card(bot, update, result)
-
-
-def send_card(bot, update, card):
-    chat_id = update.message.chat_id
+    chat_id = update.callback_query.message.chat.id
+    card = find_matches(query)[0][0]
     caption = build_caption(card)
     print(caption)
     bot.send_photo(
@@ -90,17 +102,26 @@ def send_card(bot, update, card):
     )
 
 
-def error(bot, update, context):
+def help(bot, update):
+    update.message.reply_text(
+        "Use /card to find any Yu-Gi-Oh card.\n"
+        "You can also use the inline feature to search for specific cards."
+    )
+
+
+def error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
 if __name__ == '__main__':
-    json_data = json.loads(Path('./data.json').read_text())
+    json_data = loads(Path('./data.json').read_text())
     updater = Updater(TOKEN)
     dp = updater.dispatcher
     dp.add_handler(InlineQueryHandler(inlinequery))
     dp.add_handler(CommandHandler('card', card))
+    dp.add_handler(CommandHandler('help', help))
+    dp.add_handler(CallbackQueryHandler(button))
     dp.add_error_handler(error)
     updater.start_polling()
     updater.idle()
