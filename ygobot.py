@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from difflib import SequenceMatcher
 from operator import itemgetter
 from pathlib import Path
@@ -33,8 +34,7 @@ def build_caption(card):
 
 def inlinequery(bot, update):
     query = update.inline_query.query
-    query_results = [card for card in json_data[0]
-                     if query.lower() in card['name'].lower()][0:20]
+    query_results = [card[0] for card in find_matches(query)[:20]]
     results = list()
     for result in query_results:
         caption = build_caption(result)
@@ -49,14 +49,23 @@ def inlinequery(bot, update):
     update.inline_query.answer(results)
 
 
+def match_ratio(query, card):
+    regex = r'[^\s!,.?":;0-9]+'
+    cardname = card['name'].lower()
+    query = query.lower()
+    ratio = 0
+    ratio += SequenceMatcher(None, query, cardname).ratio()
+    splitquery = re.findall(regex, query)
+    splitcard = re.findall(regex, cardname)
+    test = sum([word in splitquery for word in splitcard])
+    ratio += test
+    return ratio
+
+
 def find_matches(query):
-    results = [(card, SequenceMatcher(
-        None,
-        query.lower(),
-        card['name'].lower()).ratio()
-    ) for card in json_data[0]]
+    results = [(card, match_ratio(query, card)) for card in json_data[0]]
     results.sort(reverse=True, key=itemgetter(1))
-    return results[0]
+    return results
 
 
 def card(bot, update):
@@ -65,7 +74,8 @@ def card(bot, update):
     except IndexError:
         return
     print(query)
-    result, _ = find_matches(query)
+    result, similarity = find_matches(query)[0]
+    print(result, similarity)
     send_card(bot, update, result)
 
 
