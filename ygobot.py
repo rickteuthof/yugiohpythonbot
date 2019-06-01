@@ -75,11 +75,16 @@ def card(bot, update):
         query = update.message.text.split(' ', 1)[1]
     except IndexError:
         return
+    message_id = update.message.message_id
+    chat_id = update.message.chat.id
+    bot.delete_message(
+        chat_id=chat_id,
+        message_id=message_id
+    )
     results = [result[0] for result in find_matches(query)[:10]]
     names = [card['name'] for card in results]
     kbd = [InlineKeyboardButton(name, callback_data=name) for name in names]
     newshape = (len(kbd) // 2, 2)
-    print(newshape)
     keyboard = list(reshape(array(kbd), newshape))
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
@@ -90,8 +95,12 @@ def card(bot, update):
 
 def button(bot, update):
     query = update.callback_query.data
-    print(query)
+    message_id = update.callback_query.message.message_id
     chat_id = update.callback_query.message.chat.id
+    bot.delete_message(
+        chat_id=chat_id,
+        message_id=message_id
+    )
     card = find_matches(query)[0][0]
     caption = build_caption(card)
     print(caption)
