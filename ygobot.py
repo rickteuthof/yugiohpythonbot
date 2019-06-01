@@ -8,10 +8,18 @@ from uuid import uuid4
 
 import requests
 from numpy import array, reshape
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      InlineQueryResultPhoto, InputMediaPhoto)
-from telegram.ext import (CallbackQueryHandler, CommandHandler,
-                          InlineQueryHandler, Updater)
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InlineQueryResultPhoto,
+    InputMediaPhoto
+)
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    InlineQueryHandler,
+    Updater
+)
 
 TOKEN = Path('./TOKEN').read_text().strip()
 
@@ -53,11 +61,11 @@ def inlinequery(bot, update):
 
 
 def match_ratio(query, card):
-    regex = r'[^\s!,./?":;0-9]+'
+    regex = r'[^\s!,.?":;0-9]+'
     cardname = card['name'].lower()
     query = query.lower()
     ratio = 0
-    ratio += SequenceMatcher(None, query, cardname).ratio()
+    ratio += SequenceMatcher(None, query, cardname).quick_ratio()
     splitquery = re.findall(regex, query)
     splitcard = re.findall(regex, cardname)
     test = sum([word in splitquery for word in splitcard])
