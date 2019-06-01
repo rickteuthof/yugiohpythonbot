@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import requests
 from numpy import array, reshape
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      InlineQueryResultPhoto)
+from telegram import (InlineQueryResultPhoto, InlineKeyboardButton,
+                      InlineKeyboardMarkup)
 from telegram.ext import (CallbackQueryHandler, CommandHandler,
                           InlineQueryHandler, Updater)
 
@@ -65,43 +65,47 @@ def match_ratio(query, card):
 
 
 def find_matches(query):
-    results = [(card, match_ratio(query, card)) for card in json_data[0]]
+    """
+    Returns a triple (card json, query match value, json data index)
+    """
+    results = [(card, match_ratio(query, card), i)
+               for i, card in enumerate(json_data[0])]
     results.sort(reverse=True, key=itemgetter(1))
     return results
 
 
 def card(bot, update):
+    chat_id = update.message.chat.id
+    message_id = update.message.message_id
     try:
         query = update.message.text.split(' ', 1)[1]
     except IndexError:
         return
-    message_id = update.message.message_id
-    chat_id = update.message.chat.id
+    results = [(card['name'], i) for card, _, i in find_matches(query)[:10]]
+    kbd = [InlineKeyboardButton(name, callback_data=i) for name, i in results]
+    newshape = (len(kbd) // 2, 2)
+    keyboard = list(reshape(array(kbd), newshape))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    bot.send_message(
+        chat_id=chat_id,
+        text='Results for query:',
+        reply_markup=reply_markup
+    )
     bot.delete_message(
         chat_id=chat_id,
         message_id=message_id
     )
-    results = [result[0] for result in find_matches(query)[:10]]
-    names = [card['name'] for card in results]
-    kbd = [InlineKeyboardButton(name, callback_data=name) for name in names]
-    newshape = (len(kbd) // 2, 2)
-    keyboard = list(reshape(array(kbd), newshape))
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(
-        text='Results for query:',
-        reply_markup=reply_markup
-    )
 
 
 def button(bot, update):
-    query = update.callback_query.data
+    index = int(update.callback_query.data)
     message_id = update.callback_query.message.message_id
     chat_id = update.callback_query.message.chat.id
     bot.delete_message(
         chat_id=chat_id,
         message_id=message_id
     )
-    card = find_matches(query)[0][0]
+    card = json_data[0][index]
     caption = build_caption(card)
     print(caption)
     bot.send_photo(
@@ -118,9 +122,9 @@ def help(bot, update):
     )
 
 
-def error(update, context):
+def error(bot, update, error):
     """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
+    logger.warning('Update "%s" caused error "%s"' % (bot, error))
 
 
 if __name__ == '__main__':
