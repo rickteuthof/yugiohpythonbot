@@ -8,3 +8,7 @@ clipboard
 __pycache__/
 
 \.vscode/
+
+log.log
+
+testbot.py

@@ -8,17 +8,18 @@ from uuid import uuid4
 
 import requests
 from numpy import array, reshape
-from telegram import (InlineQueryResultPhoto, InlineKeyboardButton,
-                      InlineKeyboardMarkup)
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      InlineQueryResultPhoto, InputMediaPhoto)
 from telegram.ext import (CallbackQueryHandler, CommandHandler,
                           InlineQueryHandler, Updater)
 
 TOKEN = Path('./TOKEN').read_text().strip()
-API_URL = 'https://db.ygoprodeck.com/api/v2/cardinfo.php'
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO)
+    level=logging.INFO,
+    # filename='log.log'
+)
 logger = logging.getLogger(__name__)
 
 
@@ -36,11 +37,11 @@ def build_caption(card):
 
 def inlinequery(bot, update):
     query = update.inline_query.query
+    logger.info('Bot "%s" got inlinequery "%s"' % (bot, query))
     query_results = [card[0] for card in find_matches(query)[:20]]
     results = list()
     for result in query_results:
         caption = build_caption(result)
-        print(caption)
         results.append(InlineQueryResultPhoto(
             id=uuid4(),
             title=result['name'],
@@ -81,6 +82,7 @@ def card(bot, update):
         query = update.message.text.split(' ', 1)[1]
     except IndexError:
         return
+    logger.info('Bot "%s" got query "%s"' % (bot, query))
     results = [(card['name'], i) for card, _, i in find_matches(query)[:10]]
     kbd = [InlineKeyboardButton(name, callback_data=i) for name, i in results]
     newshape = (len(kbd) // 2, 2)
@@ -88,7 +90,7 @@ def card(bot, update):
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(
         chat_id=chat_id,
-        text='Results for query:',
+        text='Results for query:', 1
         reply_markup=reply_markup
     )
     bot.delete_message(
@@ -97,8 +99,7 @@ def card(bot, update):
     )
 
 
-def button(bot, update):
-    index = int(update.callback_query.data)
+def send_card(bot, update, index):
     message_id = update.callback_query.message.message_id
     chat_id = update.callback_query.message.chat.id
     bot.delete_message(
@@ -107,12 +108,67 @@ def button(bot, update):
     )
     card = json_data[0][index]
     caption = build_caption(card)
-    print(caption)
-    bot.send_photo(
+    logger.info('Bot "%s" sent msg "%s"' % (bot, caption))
+    keyboard = [[InlineKeyboardButton("Collapse", callback_data="collapse")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    msg = bot.send_photo(
         chat_id=chat_id,
         photo=card['image_url'],
-        caption=caption
+        caption=caption,
+        reply_markup=reply_markup
     )
+    active_msgs[msg.message_id] = {
+        "card_name": card['name'],
+        "image_url": card['image_url'],
+        "caption": caption,
+    }
+
+
+def collapse(bot, update):
+    message_id = update.callback_query.message.message_id
+    chat_id = update.callback_query.message.chat.id
+    keyboard = [[InlineKeyboardButton("Expand", callback_data="expand")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    active_message = active_msgs[message_id]
+    media = InputMediaPhoto(
+        media='https://upload.wikimedia.org/wikipedia/commons/2/20/16x16.png',
+        caption=active_message['card_name']
+    )
+    bot.edit_message_media(
+        chat_id=chat_id,
+        message_id=message_id,
+        media=media,
+        reply_markup=reply_markup
+    )
+
+
+def expand(bot, update):
+    message_id = update.callback_query.message.message_id
+    chat_id = update.callback_query.message.chat.id
+    keyboard = [[InlineKeyboardButton("Collapse", callback_data="collapse")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    active_message = active_msgs[message_id]
+    media = InputMediaPhoto(
+        media=active_message['image_url'],
+        caption=active_message['caption']
+    )
+    bot.edit_message_media(
+        chat_id=chat_id,
+        message_id=message_id,
+        media=media,
+        reply_markup=reply_markup
+    )
+
+
+def button(bot, update):
+    data = update.callback_query.data
+    if data == "collapse":
+        collapse(bot, update)
+    elif data == "expand":
+        expand(bot, update)
+    else:
+        index = int(data)
+        send_card(bot, update, index)
 
 
 def help(bot, update):
@@ -124,11 +180,12 @@ def help(bot, update):
 
 def error(bot, update, error):
     """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"' % (bot, error))
+    logger.error('Bot "%s" caused error "%s"' % (bot, error))
 
 
 if __name__ == '__main__':
     json_data = loads(Path('./data.json').read_text())
+    active_msgs = dict()
     updater = Updater(TOKEN)
     dp = updater.dispatcher
     dp.add_handler(InlineQueryHandler(inlinequery))
