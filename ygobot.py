@@ -90,7 +90,7 @@ def card(bot, update):
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(
         chat_id=chat_id,
-        text='Results for query:', 1
+        text='Results for query:',
         reply_markup=reply_markup
     )
     bot.delete_message(
