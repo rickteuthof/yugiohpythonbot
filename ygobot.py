@@ -46,7 +46,8 @@ def build_caption(card):
 def inlinequery(bot, update):
     query = update.inline_query.query
     logger.info('Bot "%s" got inlinequery "%s"' % (bot, query))
-    query_results = [card[0] for card in find_matches(query)[:20]]
+    query_results = [card[0] for card in json_data[0]
+                     if query.lower() in card['name'].lower()[:20]]
     results = list()
     for result in query_results:
         caption = build_caption(result)
@@ -153,8 +154,8 @@ def collapse(bot, update):
 def expand(bot, update):
     message_id = update.callback_query.message.message_id
     chat_id = update.callback_query.message.chat.id
-    keyboard = [[InlineKeyboardButton("Collapse", callback_data="collapse")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # keyboard = [[InlineKeyboardButton("Collapse", callback_data="collapse")]]
+    # reply_markup = InlineKeyboardMarkup(keyboard)
     active_message = active_msgs[message_id]
     media = InputMediaPhoto(
         media=active_message['image_url'],
