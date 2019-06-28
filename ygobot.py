@@ -46,8 +46,8 @@ def build_caption(card):
 def inlinequery(bot, update):
     query = update.inline_query.query
     logger.info('Bot "%s" got inlinequery "%s"' % (bot, query))
-    query_results = [card[0] for card in json_data[0]
-                     if query.lower() in card['name'].lower()[:20]]
+    query_results = [card for card in json_data[0]
+                     if query.lower() in card['name'].lower()][:20]
     results = list()
     for result in query_results:
         caption = build_caption(result)
@@ -165,7 +165,7 @@ def expand(bot, update):
         chat_id=chat_id,
         message_id=message_id,
         media=media,
-        reply_markup=reply_markup
+        # reply_markup=reply_markup
     )
 
 
